@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SouBuzz - Pesquisa de satisfação</title>
+    <script src="https://unpkg.com/vue@3.1.1/dist/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        .pagination-link {
+            padding-left: 8px;
+            padding-right: 8px;
+            min-width: 0;
+            margin: 1px;
+        }
+
+        .pagination-next,
+        .pagination-next:active,
+        .pagination-next:hover {
+            border-color: #485fc7;
+            background-color: #485fc7;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <section class="section">
+            <h1 class="title">
+                SouBuzz
+            </h1>
+            <p class="subtitle">
+                Pesquisa de satisfação
+            </p>
+        </section>
+
+        <section v-if="(buildingQuestions || registeringFeedback) && !finished" class="section">
+            <p class="subtitle">Aguarde um momento...</p>
+        </section>
+
+        <section v-if="finished" class="section">
+            <p class="subtitle">Agradecemos a sua atenção em nos ter contado como foi sua experiência.</p>
+        </section>
+
+        <section v-if="!buildingQuestions && !registeringFeedback && !finished" class="section">
+            <p class="subtitle">Em uma escala de 0 a 10, qual é a probabilidade de você recomendar <strong>{{
+                    questions[currentQuestionIndex].name }}</strong>
+                para um
+                amigo ou colega?</p>
+            <p>&nbsp;</p>
+            <nav class="pagination" role="navigation" aria-label="Nota NPS">
+                <ul class="pagination-list">
+                    <li><a @click="setNps(0)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 0 }"
+                            class="pagination-link" aria-label="Selecionar nota 0">0</a></li>
+                    <li>
+                        <a @click="setNps(1)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 1 }"
+                            class="pagination-link" aria-label="Selecionar nota 1" aria-current="page">1</a>
+                    </li>
+                    <li>
+                        <a @click="setNps(2)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 2 }"
+                            class="pagination-link" aria-label="Selecionar nota 2">2</a>
+                    </li>
+                    <li><a @click="setNps(3)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 3 }"
+                            class="pagination-link" aria-label="Selecionar nota 3">3</a></li>
+                    <li><a @click="setNps(4)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 4 }"
+                            class="pagination-link" aria-label="Selecionar nota 4">4</a></li>
+                    <li><a @click="setNps(5)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 5 }"
+                            class="pagination-link" aria-label="Selecionar nota 5">5</a></li>
+                    <li><a @click="setNps(6)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 6 }"
+                            class="pagination-link" aria-label="Selecionar nota 6">6</a></li>
+                    <li><a @click="setNps(7)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 7 }"
+                            class="pagination-link" aria-label="Selecionar nota 7">7</a></li>
+                    <li><a @click="setNps(8)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 8 }"
+                            class="pagination-link" aria-label="Selecionar nota 8">8</a></li>
+                    <li><a @click="setNps(9)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 9 }"
+                            class="pagination-link" aria-label="Selecionar nota 9">9</a></li>
+                    <li><a @click="setNps(10)" :class="{ 'is-current': questions[currentQuestionIndex].nps === 10 }"
+                            class="pagination-link" aria-label="Selecionar nota 10">10</a></li>
+                </ul>
+            </nav>
+            <textarea v-model="questions[this.currentQuestionIndex].notes" class="textarea"
+                placeholder="Algo a complementar? (opcional)" rows="3"></textarea>
+        </section>
+
+        <section v-if="!buildingQuestions && !registeringFeedback && !finished" class="section">
+            <nav class="pagination" role="navigation" aria-label="Navegação">
+                <a @click="previousQuestion" :class="{ 'is-disabled': currentQuestionIndex === 0 }"
+                    class="pagination-previous" title="This is the first page">Voltar</a>
+                <a @click="nextQuestion" class="pagination-next">Próximo</a>
+            </nav>
+        </section>
+    </div>
+
+    <script>
+        var { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    saleId: null,
+                    buildingQuestions: true,
+                    currentQuestionIndex: 0,
+                    questions: [],
+                    registeringFeedback: false,
+                    finished: false
+                }
+            },
+            watch: {
+                finished: function (val, oldVal) {
+                    localStorage.setItem("sale_" + this.saleId + ".finished", val)
+                }
+            },
+            methods: {
+                feedbackAlreadyFinished() {
+                    return localStorage.getItem("sale_" + this.saleId + ".finished") || false
+                },
+                nextQuestion() {
+                    if (this.currentQuestionIndex < this.questions.length - 1) this.currentQuestionIndex++
+                    else this.registerFeedback().then(() => { this.finished = true })
+                },
+                previousQuestion() {
+                    if (this.currentQuestionIndex > 0) this.currentQuestionIndex--
+                },
+                setNps(nps) {
+                    this.questions[this.currentQuestionIndex].nps = nps
+                },
+                buildQuestions() {
+                    var options = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: "query findPublicSale ($saleId: ID!){ publicSale(id: $saleId){ id salables { id name } seller { id name } }}",
+                            variables: { saleId: this.saleId },
+                            operationName: "findPublicSale"
+                        })
+                    };
+                    var saleToSellerQuestion = sale => ({
+                        type: "seller",
+                        id: sale.seller.id,
+                        name: sale.seller.name,
+                        nps: null,
+                        notes: null
+                    })
+                    var salableToSalableQuestion = salable => ({
+                        type: "salable",
+                        id: salable.id,
+                        name: salable.name,
+                        nps: null,
+                        notes: null
+                    })
+                    var saleToQuestions = sale => [
+                        saleToSellerQuestion(sale),
+                        ...sale.salables.map(salableToSalableQuestion)
+                    ]
+                    var setQuestions = questions => {
+                        this.buildingQuestions = false;
+                        this.questions = questions;
+                    }
+                    fetch('https://us-central1-soubuzz-app.cloudfunctions.net/graphql', options)
+                        .then(res => res.json())
+                        .then(it => it.data)
+                        .then(it => it.publicSale)
+                        .then(saleToQuestions)
+                        .then(setQuestions)
+                        .catch(err => console.error(err));//TODO tratar erros
+                },
+                registerFeedback() {
+                    this.registeringFeedback = true
+                    var sellerScore = this.questions
+                        .filter(({ type }) => type === "seller")
+                        .map(q => ({
+                            npsAnswer: q.nps,
+                            notes: q.notes || null
+                        }))[0]
+
+                    var salableScores = this.questions
+                        .filter(({ type }) => type === "salable")
+                        .map(q => ({
+                            salableId: q.id,
+                            score: {
+                                npsAnswer: q.nps,
+                                notes: q.notes || null
+                            }
+                        }))
+
+                    var options = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: "mutation($request: RegisterFeedbackRequest!) { registerFeedback(request: $request){ feedbackId }}",
+                            variables: {
+                                request: {
+                                    saleId: this.saleId,
+                                    sellerScore,
+                                    salableScores
+                                }
+                            }
+                        })
+                    };
+
+                    var handleFeedbackResponse = ({ feedbackId }) => {
+                        this.registeringFeedback = false;
+                        console.log("feedback registered: " + feedbackId);
+                    }
+
+                    return fetch('https://us-central1-soubuzz-app.cloudfunctions.net/graphql', options)
+                        .then(res => res.json())
+                        .then(it => it.data)
+                        .then(it => it.registerFeedback)
+                        .then(handleFeedbackResponse)
+                        .catch(err => console.error(err));//TODO tratar erros
+                }
+            },
+            mounted() {
+                this.saleId = new URLSearchParams(window.location.search).get('s')
+                if (this.feedbackAlreadyFinished()) {
+                    this.finished = true
+                } else {
+                    this.finished = false
+                    this.buildQuestions()
+                }
+
+            }
+        }).mount('#app')
+    </script>
+</body>
+
+</html>
