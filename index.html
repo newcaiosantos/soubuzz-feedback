@@ -189,7 +189,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            query: "mutation($request: RegisterFeedbackRequest!) { registerFeedback(request: $request){ feedbackId }}",
+                            query: "mutation($request: RegisterFeedbackRequest!) { registerFeedback(request: $request)}",
                             variables: {
                                 request: {
                                     saleId: this.saleId,
