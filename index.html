@@ -200,9 +200,9 @@
                         })
                     };
 
-                    var handleFeedbackResponse = ({ feedbackId }) => {
+                    var handleFeedbackResponse = () => {
                         this.registeringFeedback = false;
-                        console.log("feedback registered: " + feedbackId);
+                        console.log("feedback registered");
                     }
 
                     return fetch('https://us-central1-soubuzz-app.cloudfunctions.net/graphql', options)
